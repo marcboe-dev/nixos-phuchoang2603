@@ -40,6 +40,7 @@
       "raycast"
       "obsidian"
       "zalo"
+      "telegram"
       "karabiner-elements"
       "bettertouchtool"
       "yaak"
