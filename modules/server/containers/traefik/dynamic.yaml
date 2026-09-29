@@ -12,10 +12,10 @@ http:
       service: minio
       tls:
         certResolver: letsencrypt
-    t3code:
-      rule: Host(`t3code.home.phuchoang.sbs`)
+    truenas:
+      rule: Host(`truenas.home.phuchoang.sbs`)
       entryPoints: [websecure]
-      service: t3code
+      service: truenas
       tls:
         certResolver: letsencrypt
   services:
@@ -28,10 +28,11 @@ http:
       loadBalancer:
         servers:
           - url: http://10.69.1.102:30212
-    t3code:
+    truenas:
       loadBalancer:
         servers:
-          - url: http://host.docker.internal:3773
+          - url: https://10.69.1.102
+        serversTransport: insecureTransport
   serversTransports:
     insecureTransport:
       insecureSkipVerify: true
