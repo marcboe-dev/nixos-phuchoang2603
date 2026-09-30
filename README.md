@@ -91,7 +91,7 @@ For a server install, use `nixos-server` and `hosts/nixos-server/hardware-config
 
 Containers are declared in Nix (`modules/server/containers/`) via `virtualisation.oci-containers` (no Compose). Traefik publishes 80/443; apps use the Docker `proxy` network.
 
-`traefik` `vaultwarden` `karakeep` `n8n` `newt` `docker-sock-proxy` `mcpjungle` `obscura`
+`traefik` `vaultwarden` `karakeep` `n8n` `newt` `docker-sock-proxy` `mcpjungle` `obscura` `excalidraw`
 
 Secrets live on NFS at `/mnt/storage/appdata/secrets/`. Copy from `modules/server/secrets-examples/` (`n8n.env` is optional extras; host/webhook are set in Nix). Traefik ACME certs: `/mnt/storage/appdata/traefik/certs/`.
 
@@ -102,6 +102,34 @@ dashboard. SQLite data lives at `/var/lib/mcpjungle`.
 Obscura serves HTTP MCP at `http://obscura:3000/mcp` on the internal `proxy`
 network. Register it in MCPJungle as a Streamable HTTP upstream. It can access
 private/LAN addresses; it has no published host port or Traefik route.
+
+Excalidraw canvas (mcp_excalidraw) serves the web UI and REST API at
+`https://excalidraw.home.phuchoang.sbs` (LAN only) and `http://excalidraw:3000` on
+`proxy`. Scenes are in-memory and lost on restart. Its MCP server is stdio-only,
+so MCPJungle runs the `-stdio` image and launches it via `npx`. Register it as a
+stdio upstream with `mcpjungle register -c excalidraw.json`:
+
+```json
+{
+  "name": "excalidraw",
+  "transport": "stdio",
+  "description": "Live Excalidraw canvas at https://excalidraw.home.phuchoang.sbs",
+  "session_mode": "stateful",
+  "command": "npx",
+  "args": ["-y", "mcp-excalidraw-server@2.0.0"],
+  "env": {
+    "EXPRESS_SERVER_URL": "http://excalidraw:3000",
+    "EXCALIDRAW_NO_AUTOSTART": "1"
+  }
+}
+```
+
+Agents get `EXPRESS_SERVER_URL` pointing at the canvas and the `excalidraw-skill`
+skill, so the CLI (`npx -y mcp-excalidraw-server@2.0.0 export --out ...`) can
+export diagrams into local repos. Keep the canvas open in a browser tab for
+screenshots and Mermaid conversion.
+Set `OBSCURA_MCP_TOKEN` in `/mnt/storage/appdata/secrets/obscura.env` to a
+random value of at least 32 bytes before starting it (see `modules/server/secrets-examples/obscura.env`).
 
 The dashboard requires unauthenticated development mode. Traefik restricts
 external access to `10.69.0.0/16`, but containers on `proxy` bypass that

@@ -3,6 +3,7 @@
 {
   virtualisation.oci-containers.containers.obscura = lab.mkContainer {
     image = "h4ckf0r0day/obscura";
+    environmentFiles = [ "${lab.secrets}/obscura.env" ];
     cmd = [
       "mcp"
       "--http"

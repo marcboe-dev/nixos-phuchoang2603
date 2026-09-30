@@ -17,6 +17,8 @@ in
     openspec
   ];
 
+  home.sessionVariables.EXPRESS_SERVER_URL = "https://excalidraw.${gatewayDomain}";
+
   # Shared MCP Servers
   programs.mcp = {
     enable = true;

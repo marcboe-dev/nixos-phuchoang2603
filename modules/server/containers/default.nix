@@ -9,6 +9,7 @@
     ./cliproxyapi.nix
     ./mcpjungle.nix
     ./obscura.nix
+    ./excalidraw.nix
   ];
 
   _module.args.lab = import ./lab.nix;
