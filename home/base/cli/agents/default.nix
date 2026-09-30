@@ -1,11 +1,9 @@
-{
-  pkgs,
-  ...
-}:
+{ pkgs, ... }:
 
 let
   sharedContext = ./AGENTS.md;
   agentSkills = ./skills;
+  gatewayDomain = (import ../../../../modules/server/lib.nix).domain;
 in
 {
   imports = [
@@ -23,8 +21,8 @@ in
   programs.mcp = {
     enable = true;
     servers = {
-      context7 = {
-        url = "https://mcp.context7.com/mcp";
+      mcpjungle = {
+        url = "https://mcp.${gatewayDomain}/mcp";
       };
     };
   };
