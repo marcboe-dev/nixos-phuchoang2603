@@ -76,6 +76,69 @@ The canvas uses a 2D coordinate grid: **(0, 0) is the origin**, **x increases ri
 
 ---
 
+## Architecture Diagram Conventions (Required)
+
+Apply these rules to every system / platform / pipeline / infrastructure diagram. They take precedence over the generic anti-patterns below. Reference example: `references/example-ml-platform.png` (an MLOps platform) — view it before drawing a large architecture diagram. Where the example is looser than the rules (not every arrow is numbered), follow the rules.
+
+### Rule 1: Every main component is a deployable unit
+
+- Top-level boxes are things you can deploy and run on their own: services, databases, message brokers, schedulers, UIs, jobs. Examples: Kafka, Schema Registry, Debezium, Spark job, Redis, PostgreSQL, Ray Serve, MLflow, NGINX, Airflow, Jupyter, SigNoz, OpenTelemetry Collector.
+- Libraries, SDKs, frameworks, and concepts are **not** components. The Feast SDK can't be deployed, so it is not a box — draw what it talks to (Redis as the online store, PostgreSQL as the offline store) or the service that embeds it. Same for pandas, LangChain, an ML framework, or "feature engineering".
+- Things that live *inside* a deployable unit go inside or attached to that unit, never as free-standing peers:
+  - Kafka topics → pill/cylinder shapes carrying the Kafka logo.
+  - Airflow DAG tasks → boxes inside a dashed boundary with the Airflow logo in its corner.
+  - Model replicas (XGBoost) → boxes inside the Ray Serve box.
+  - Buckets/tables → labeled under their store's logo ("Model Storage" on MinIO, "Metric Storage" on PostgreSQL).
+- Label by role, with the technology shown by its logo: "Online Store" under the Redis logo, "Offline Store" under the PostgreSQL logo.
+- Self-check each top-level box: "could I `docker run` / `helm install` this?" If not, fold it into its host or remove it.
+
+### Rule 2: Arrows follow the flow of data
+
+- If data moves from A to B, the arrow goes **A → B**, and its label names the data or action ("logs", "features", "latest model").
+- Direction follows the data even when B initiates: if the training job pulls features from the offline store, draw Offline Store → Training labeled "pull features"; Ray Serve loading a model is MLflow → Ray Serve labeled "load latest model".
+- If A only calls/triggers B and no meaningful data moves, the arrow goes **A → B** (caller → callee), labeled with the action ("trigger", "invoke").
+- No double-headed arrows for request/response — draw the direction of the primary payload.
+
+### Rule 3: Every arrow has a description and a step number
+
+- Label format: `(n) description`, e.g. `(1) send logs`, `(3) validate`, `(4) push features`. Keep descriptions to 1–4 words; the label sits on the arrow (use the arrow's `text`).
+- Numbers follow the order events happen. Parallel/alternative branches of one step use sub-numbers: `(2.1) cdc`, `(2.2) push`. A fan-out of the same step may repeat its number (three `(4)` arrows leaving Spark in the example).
+- **Multiple user flows** (end user vs. developer, serving vs. training): give each flow its own arrow color and its **own numbering starting at 1** — e.g. end-user flow `(1)…(5)` in blue and developer flow `(1)…(6)` in green. Set the color via the arrow's `strokeColor` (its label inherits it automatically), and add a small legend (short colored arrow + flow name) in a corner.
+- Suggested flow colors: end user / serving `#1971c2` (blue), developer / training `#2f9e44` (green), data ingestion `#e8590c` (orange), ops `#9c36b5` (purple). Keep one flow per color across the whole diagram.
+
+### Rule 4: Solid arrows by default; dashed arrows are rare
+
+- Main flows — anything directly on a user's path (end-user requests, developer workflow) — are solid.
+- Use `"strokeStyle": "dashed"` only for secondary/background flows not directly tied to a user: telemetry and log collection, alerting, async replication, periodic sync, backups. If more than ~20% of arrows are dashed, reconsider.
+- Dashed *zone borders* are fine; this rule is about arrows.
+
+### Layout & style (from the reference example)
+
+- **Zones by lifecycle stage**: group components into zones such as Data Pipeline, Serving Pipeline, Training Pipeline, Dev Env, Model Registry, Observability. Each zone: pastel fill, thin dashed border, title as a free-standing text at the top-left (fontSize 24–28). Fills used in the example: `#e7f5ff` blue, `#fff4e6` orange, `#ebfbee` green, `#fff9db` yellow, `#f1f3f5` gray.
+- **Components**: white rounded rectangles (`"roundness": {"type": 3}`) with the product logo inside or beside them (use `excalidraw-icon`); datastores as their logo (`logos:postgresql`, `logos:redis`, ...) with the role label underneath.
+- **Replicas**: draw 2–3 copies with "..." between them (Producer 1, Producer 2, ..., Producer N).
+- **Actors**: an icon (e.g. `mdi:account`, `mdi:laptop-account`) where each user flow starts.
+- **Orchestrators** (Airflow, Argo Workflows): a dashed boundary around the tasks they run, orchestrator logo at the boundary's top-right; sub-steps can sit in their own tinted sub-zones.
+- **Clean technical look**: `"roughness": 0`, `"fontFamily": "cascadia"` (monospace) for all text, `"fillStyle": "solid"`, strokeWidth 1–2.
+- **Monospace labels need a post-sync patch**: `fontFamily` is only honored on free-standing text elements. Labels created via `"text"` on shapes/arrows render in the default handwritten font. After drawing (browser tab open, wait ~5s for auto-sync so bound labels exist as text elements with a `containerId`), switch them all in one patch:
+  ```bash
+  ids=$(curl -s "$EXPRESS_SERVER_URL/api/elements" | jq -c '[.elements[] | select(.type=="text" and .containerId != null and .fontFamily != 3) | {id, set: {fontFamily: "cascadia"}}]')
+  echo "{\"update\": $ids}" | npx -y mcp-excalidraw-server@2.0.0 apply -
+  ```
+  Repeat after adding more labeled shapes/arrows, and before `export`.
+- **Routing**: cross-zone arrows are expected here. Leave 60–100px gutters between zones and route arrows orthogonally (`"elbowed": true` or waypoints) through the gutters — never diagonally across another zone.
+
+### Planning an architecture diagram
+
+Before writing any JSON, write down:
+1. The deployable units (Rule 1) and which zone each belongs to.
+2. Each user flow, its color, and its ordered steps as `(n) source → target: description` (Rules 2–3).
+3. Which arrows (if any) are secondary and dashed (Rule 4).
+
+Then lay out zones in reading order (left → right, top → bottom following flow `(1)`), place components with `excalidraw-icon`, and add arrows flow by flow.
+
+---
+
 ## Layout Anti-Patterns (Critical for Complex Diagrams)
 
 These are the most common mistakes that produce unreadable diagrams. Avoid all of them.
@@ -105,6 +168,8 @@ An arrow from an element in one layout zone to an element in a distant zone will
 
 If you must connect across zones, use an elbowed arrow that travels along the perimeter — never through the middle of another zone.
 
+**Architecture diagrams:** cross-zone arrows are normal (data flows between pipelines) — route them through gutters between zones as described in Architecture Diagram Conventions.
+
 ### 3. Use arrow labels sparingly
 
 Arrow labels are placed at the midpoint of the arrow. On short arrows, they overlap the shapes at both ends. On crowded diagrams, they collide with nearby elements.
@@ -112,6 +177,8 @@ Arrow labels are placed at the midpoint of the arrow. On short arrows, they over
 - Only add an arrow label when the relationship name is genuinely essential (e.g., protocol, port number, data direction).
 - If you're adding a label to every arrow, reconsider — it usually adds visual noise, not clarity.
 - Keep arrow labels to ≤ 12 characters. Prefer omitting them entirely on dense diagrams.
+
+**Architecture diagrams override this:** every arrow gets a short numbered label (`(n) description`, Rule 3). Keep them short, and make arrows long enough (≥ 120px) that labels don't touch the shapes at either end.
 
 ---
 
@@ -130,6 +197,13 @@ After each `add` / `apply` / `batch_create_elements`, take a screenshot and chec
 5. **Spacing** — At least 40px gap between elements. Cramped layouts are hard to read.
 6. **Readability** — Font size ≥ 16 for body text, ≥ 20 for titles.
 7. **Zone label placement** — If you used `text`/`label.text` on a background zone rectangle, the zone label will be centered in the middle of the zone, overlapping everything inside. Fix: delete the bound text element and add a free-standing text element at the top of the zone instead (see Layout Anti-Patterns above).
+
+For architecture diagrams, also check the conventions:
+
+8. **Deployable units** — every top-level box is deployable; no SDK/library boxes (Rule 1).
+9. **Arrow direction** — every arrow points the way data moves, or caller → callee if no data moves (Rule 2).
+10. **Numbering** — every arrow has `(n) description`; each flow has its own color and numbering from 1, with a legend if there's more than one flow (Rule 3).
+11. **Dashed arrows** — only on secondary, non-user flows (Rule 4).
 
 If you find any issue: **stop, fix it, re-screenshot, then continue.** Say "I see [issue], fixing it" rather than glossing over problems. Only proceed once all checks pass.
 
@@ -305,4 +379,5 @@ Round-trips are safe: text-element block references follow the plugin's own id r
 
 ## References
 
+- `references/example-ml-platform.png`: reference architecture diagram (MLOps platform) showing zones, deployable units with logos, replicas, orchestrator boundaries, and numbered data-flow arrows.
 - `references/cheatsheet.md`: full CLI reference, the 26 MCP tools, REST API endpoints + payload shapes, and the diagram design guide (colors, sizing).
