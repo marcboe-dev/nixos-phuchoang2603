@@ -128,6 +128,12 @@ Agents get `EXPRESS_SERVER_URL` pointing at the canvas and the `excalidraw-skill
 skill, so the CLI (`npx -y mcp-excalidraw-server@2.0.0 export --out ...`) can
 export diagrams into local repos. Keep the canvas open in a browser tab for
 screenshots and Mermaid conversion.
+
+`excalidraw-icon` (installed with the agents module) places logos/icons from
+[svgl](https://svgl.app) (`svgl:docker`) and [Iconify](https://icon-sets.iconify.design)
+(`selfhst:proxmox`, `logos:kubernetes`, `mdi:server`) on the canvas as image
+elements: `excalidraw-icon search <query>`, then
+`excalidraw-icon add <ref> --x 100 --y 100 --label Name`.
 Set `OBSCURA_MCP_TOKEN` in `/mnt/storage/appdata/secrets/obscura.env` to a
 random value of at least 32 bytes before starting it (see `modules/server/secrets-examples/obscura.env`).
 

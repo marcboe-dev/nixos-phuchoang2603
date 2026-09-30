@@ -10,15 +10,13 @@ in
     ./cursor.nix
     ./codex.nix
     ./t3code.nix
+    ./excalidraw.nix
   ];
 
   home.packages = with pkgs; [
     pi-coding-agent
     openspec
   ];
-
-  home.sessionVariables.EXPRESS_SERVER_URL = "https://excalidraw.${gatewayDomain}";
-
   # Shared MCP Servers
   programs.mcp = {
     enable = true;

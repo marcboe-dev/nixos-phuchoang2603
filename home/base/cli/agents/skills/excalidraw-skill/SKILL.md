@@ -1,6 +1,6 @@
 ---
 name: excalidraw-skill
-description: Excalidraw canvas toolkit for creating, editing, and refining diagrams on a live canvas. Use when an agent needs to (1) draw or lay out diagrams, (2) iteratively refine them by describing the scene and screenshotting its own work, (3) export/import .excalidraw files or PNG/SVG images, (4) save/restore canvas snapshots, (5) convert Mermaid to Excalidraw, or (6) perform element-level CRUD, alignment, distribution, grouping, duplication, and locking. Drives the shared canvas at $EXPRESS_SERVER_URL via MCPJungle `excalidraw__*` MCP tools or the CLI (npx -y mcp-excalidraw-server@2.0.0 <command>); the REST API is an equivalent fallback.
+description: Excalidraw canvas toolkit for creating, editing, and refining diagrams on a live canvas, including brand logos and icons from svgl/Iconify. Use when an agent needs to (1) draw or lay out diagrams, (2) iteratively refine them by describing the scene and screenshotting its own work, (3) export/import .excalidraw files or PNG/SVG images, (4) save/restore canvas snapshots, (5) convert Mermaid to Excalidraw, or (6) perform element-level CRUD, alignment, distribution, grouping, duplication, and locking. Drives the shared canvas at $EXPRESS_SERVER_URL via MCPJungle `excalidraw__*` MCP tools or the CLI (npx -y mcp-excalidraw-server@2.0.0 <command>); the REST API is an equivalent fallback.
 ---
 
 # Excalidraw Skill
@@ -18,6 +18,8 @@ Pick the first interface that applies:
    ```
    The CLI reads `EXPRESS_SERVER_URL` from the environment; if it's unset, pass `--url https://excalidraw.home.phuchoang.sbs`. Because the URL is non-loopback, the CLI never auto-starts a local server. MCP and CLI operate on the same canvas, so you can draw via MCP and `export` via CLI.
 3. **REST API** (last resort, e.g. from application code): HTTP endpoints on `$EXPRESS_SERVER_URL` — see `references/cheatsheet.md` for payloads.
+
+For logos and icons (svgl, Iconify), always use the `excalidraw-icon` command — see **Icons & Logos** below. It works alongside MCP and CLI on the same canvas.
 
 Remind the user to keep `$EXPRESS_SERVER_URL` open in a browser tab — screenshots, image export, mermaid conversion, and viewport control render in the frontend (CLI exits with code 4 when no tab is connected; `status` shows the browser-client count).
 
@@ -40,6 +42,7 @@ Results are JSON on stdout — except `describe` (plain text) and raw-content ou
 | Snapshots | `snapshot save\|list\|restore <name>` |
 | Share link | `share` (encrypted upload → excalidraw.com URL) |
 | Wipe canvas | `clear --yes` (only when the user asks — the canvas is shared) |
+| Find / place logos & icons | `excalidraw-icon search <query>`, `excalidraw-icon add <ref> --x --y --label` (separate command, see Icons & Logos) |
 
 ### Element Format (CLI and MCP)
 
@@ -194,6 +197,34 @@ The intermediate waypoint `[50, -40]` lifts the arrow upward. `roundness: {type:
 - Long horizontal connections: curved arrows with a slight vertical offset
 
 **Rule:** If an arrow would pass through an unrelated shape, add a waypoint to route around it.
+
+---
+
+## Icons & Logos (`excalidraw-icon`)
+
+Use real logos/icons for services, tools, and infrastructure instead of plain labeled boxes when it helps recognition (architecture, homelab, deployment diagrams). The `excalidraw-icon` command fetches SVGs and places them on the canvas as image elements — the SVG never passes through your context, so don't try to embed SVGs via MCP `import_scene` yourself.
+
+**Sources / refs:**
+- **svgl** (`svgl:<slug>`) — ~670 colorful brand logos. Many have `light`/`dark` variants; the canvas is light-themed by default, so use the `light` ref. Wordmarks (logo + name) are listed separately.
+- **Iconify** (`<prefix>:<name>`) — 200k+ icons. Useful sets: `logos:` (color brand logos), `selfhst:` (self-hosted/homelab apps: proxmox, jellyfin, traefik, ...), `simple-icons:` (monochrome brands), `devicon:` (dev tools/languages), `mdi:` / `lucide:` / `tabler:` (generic UI icons: server, database, user, cloud). Monochrome sets accept `--color`.
+
+**Workflow:**
+1. Find refs (JSON out): `excalidraw-icon search docker` — searches svgl + Iconify; narrow with `--source svgl|iconify` or `--prefix selfhst,logos`. Iconify search is keyword-based ("database", not "place to store data").
+2. Place one: `excalidraw-icon add svgl:docker --x 100 --y 100 --size 64 --label Docker [--id docker]`
+3. Place many in one call (preferred):
+   ```bash
+   excalidraw-icon add - <<'EOF'
+   [
+     {"ref": "selfhst:proxmox", "x": 100, "y": 100, "label": "Proxmox", "id": "pve"},
+     {"ref": "logos:kubernetes", "x": 260, "y": 100, "label": "Talos k8s", "id": "k8s"},
+     {"ref": "mdi:database", "x": 420, "y": 100, "size": 56, "color": "#2f9e44", "label": "Postgres"}
+   ]
+   EOF
+   ```
+4. Output lists each `id`, `labelId`, and the final `width`/`height` (aspect ratio preserved, longest side = `size`, default 64). The label is a separate text element centered 8px below the icon — budget ~30px of vertical space for it.
+5. Connect with arrows using the returned ids (`startElementId` / `endElementId`), then `screenshot` to verify as usual. Icons are regular elements: move/resize with `update`, remove with `delete` (delete the `-label` element too).
+
+**Layout tips:** 64px icons with 150px horizontal spacing leave room for labels; for icons inside a zone or a node box, place the icon at the top-left of the box and put text beside it rather than stacking labels on top. `excalidraw-icon svg <ref> --out file.svg` saves the normalized SVG for use outside the canvas (docs, READMEs).
 
 ---
 
