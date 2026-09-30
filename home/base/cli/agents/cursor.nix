@@ -10,9 +10,12 @@ let
   transformedMcpServers = lib.optionalAttrs (cfg.enableMcpIntegration && config.programs.mcp.enable) (
     lib.mapAttrs (
       name: server:
-      (removeAttrs server [ "disabled" ])
-      // (lib.optionalAttrs (server ? url) { type = "http"; })
-      // (lib.optionalAttrs (server ? command) { type = "stdio"; })
+      let
+        s = lib.filterAttrs (_: v: v != null) (removeAttrs server [ "disabled" ]);
+      in
+      s
+      // (lib.optionalAttrs (s ? url) { type = "http"; })
+      // (lib.optionalAttrs (s ? command) { type = "stdio"; })
       // {
         enabled = !(server.disabled or false);
       }
