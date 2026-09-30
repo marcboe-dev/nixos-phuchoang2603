@@ -8,6 +8,7 @@
     ./socat.nix
     ./cliproxyapi.nix
     ./mcpjungle.nix
+    ./obscura.nix
   ];
 
   _module.args.lab = import ./lab.nix;

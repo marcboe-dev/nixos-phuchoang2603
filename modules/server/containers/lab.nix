@@ -39,6 +39,7 @@ in
     rest
     // {
       autoStart = args.autoStart or true;
+      pull = args.pull or "always";
       extraOptions = [ "--network=${proxyNetwork}" ] ++ extraOptions;
       environment = {
         TZ = tz;

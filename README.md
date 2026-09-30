@@ -91,13 +91,17 @@ For a server install, use `nixos-server` and `hosts/nixos-server/hardware-config
 
 Containers are declared in Nix (`modules/server/containers/`) via `virtualisation.oci-containers` (no Compose). Traefik publishes 80/443; apps use the Docker `proxy` network.
 
-`traefik` `vaultwarden` `karakeep` `n8n` `newt` `docker-sock-proxy` `mcpjungle`
+`traefik` `vaultwarden` `karakeep` `n8n` `newt` `docker-sock-proxy` `mcpjungle` `obscura`
 
 Secrets live on NFS at `/mnt/storage/appdata/secrets/`. Copy from `modules/server/secrets-examples/` (`n8n.env` is optional extras; host/webhook are set in Nix). Traefik ACME certs: `/mnt/storage/appdata/traefik/certs/`.
 
 MCPJungle: dashboard at `https://mcp.home.phuchoang.sbs/`, remote MCP at
 `https://mcp.home.phuchoang.sbs/mcp`. Add upstreams and credentials in the
 dashboard. SQLite data lives at `/var/lib/mcpjungle`.
+
+Obscura serves HTTP MCP at `http://obscura:3000/mcp` on the internal `proxy`
+network. Register it in MCPJungle as a Streamable HTTP upstream. It can access
+private/LAN addresses; it has no published host port or Traefik route.
 
 The dashboard requires unauthenticated development mode. Traefik restricts
 external access to `10.69.0.0/16`, but containers on `proxy` bypass that
