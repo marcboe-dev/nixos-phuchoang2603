@@ -16,6 +16,7 @@ SVGL_API = "https://api.svgl.app"
 SVGL_LIBRARY = "https://svgl.app/library"
 ICONIFY_API = os.environ.get("ICONIFY_API_URL", "https://api.iconify.design")
 USER_AGENT = "excalidraw-icon/1.0"
+DEFAULT_SIZE = 96
 
 
 def fail(msg, code=1):
@@ -131,7 +132,7 @@ def normalize_svg(svg):
 
 def build_icon(spec, index):
     ref = spec["ref"]
-    size = float(spec.get("size", 64))
+    size = float(spec.get("size", DEFAULT_SIZE))
     x, y = float(spec.get("x", 0)), float(spec.get("y", 0))
     svg, aspect = normalize_svg(fetch_svg(ref, spec.get("color")))
 
@@ -164,7 +165,7 @@ def build_icon(spec, index):
 
     label = spec.get("label")
     if label:
-        font_size = float(spec.get("fontSize", 16))
+        font_size = float(spec.get("fontSize", 18))
         label_id = f"{elem_id}-label"
         # With textAlign=center the frontend treats x as the text's center
         # and measures the real width itself.
@@ -176,6 +177,7 @@ def build_icon(spec, index):
             "height": round(font_size * 1.25, 2),
             "text": label,
             "fontSize": font_size,
+            "fontFamily": spec.get("fontFamily", "cascadia"),
             "textAlign": "center",
             "strokeColor": spec.get("labelColor", "#1e1e1e"),
         })
@@ -257,7 +259,7 @@ def main():
     a.add_argument("ref")
     a.add_argument("--x", type=float, default=0)
     a.add_argument("--y", type=float, default=0)
-    a.add_argument("--size", type=float, default=64, help="longest side in px (default 64)")
+    a.add_argument("--size", type=float, default=DEFAULT_SIZE, help=f"longest side in px (default {DEFAULT_SIZE})")
     a.add_argument("--label", help="text label centered below the icon")
     a.add_argument("--id", help="element id (default: icon-<name>-<rand>)")
     a.add_argument("--color", help="Iconify only: color for monochrome icons, e.g. '#326ce5'")

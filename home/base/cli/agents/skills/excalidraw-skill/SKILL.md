@@ -19,7 +19,9 @@ Pick the first interface that applies:
    The CLI reads `EXPRESS_SERVER_URL` from the environment; if it's unset, pass `--url https://excalidraw.home.phuchoang.sbs`. Because the URL is non-loopback, the CLI never auto-starts a local server. MCP and CLI operate on the same canvas, so you can draw via MCP and `export` via CLI.
 3. **REST API** (last resort, e.g. from application code): HTTP endpoints on `$EXPRESS_SERVER_URL` — see `references/cheatsheet.md` for payloads.
 
-For logos and icons (svgl, Iconify), always use the `excalidraw-icon` command — see **Icons & Logos** below. It works alongside MCP and CLI on the same canvas.
+Two helper commands work alongside MCP and CLI on the same canvas — prefer them over hand-writing elements:
+- `excalidraw-icon` — place logos/icons (svgl, Iconify). See **Icons & Logos**.
+- `excalidraw-connect` — draw orthogonal (elbow) arrows between element ids, bound to both ends, with a numbered label. See **Arrows: Always Orthogonal**.
 
 Remind the user to keep `$EXPRESS_SERVER_URL` open in a browser tab — screenshots, image export, mermaid conversion, and viewport control render in the frontend (CLI exits with code 4 when no tab is connected; `status` shows the browser-client count).
 
@@ -43,13 +45,14 @@ Results are JSON on stdout — except `describe` (plain text) and raw-content ou
 | Share link | `share` (encrypted upload → excalidraw.com URL) |
 | Wipe canvas | `clear --yes` (only when the user asks — the canvas is shared) |
 | Find / place logos & icons | `excalidraw-icon search <query>`, `excalidraw-icon add <ref> --x --y --label` (separate command, see Icons & Logos) |
+| Connect elements (elbow arrows) | `excalidraw-connect <from-id> <to-id> --label '(1) ...' --color '#1971c2'` or `excalidraw-connect -` with a JSON array (separate command) |
 
 ### Element Format (CLI and MCP)
 
 The CLI and MCP tools accept the same agent-friendly format and normalize it automatically:
 
-- **Labels**: put `"text": "My Label"` on any shape — converted to Excalidraw's bound-label format for you.
-- **Arrow binding**: `"startElementId": "a"` / `"endElementId": "b"` — arrows auto-route to element edges.
+- **Labels**: put `"text": "My Label"` on any shape — converted to Excalidraw's bound-label format for you. This shorthand always renders in the default handwritten font; for monospace labels use a bound text element instead (see Architecture conventions → Labeled boxes).
+- **Arrow binding**: `"startElementId": "a"` / `"endElementId": "b"` — the server always draws these as **straight diagonal** lines, even with `"elbowed": true`. For architecture diagrams use `excalidraw-connect` instead.
 - **fontFamily**: pass a string name (`"helvetica"`, `"cascadia"`, `"excalifont"`, ...) or string number `"1"`–`"8"`.
 - **points**: both `[[x,y], ...]` tuples and `[{"x":..,"y":..}]` objects are accepted.
 - **Patch updates**: in `apply`, update entries can use either direct fields (`{"id":"a","x":120}`) or a `set` object (`{"id":"a","set":{"x":120}}`). Do not mix both forms in one update entry.
@@ -101,7 +104,7 @@ Apply these rules to every system / platform / pipeline / infrastructure diagram
 
 ### Rule 3: Every arrow has a description and a step number
 
-- Label format: `(n) description`, e.g. `(1) send logs`, `(3) validate`, `(4) push features`. Keep descriptions to 1–4 words; the label sits on the arrow (use the arrow's `text`).
+- Label format: `(n) description`, e.g. `(1) send logs`, `(3) validate`, `(4) push features`. Keep descriptions to 1–4 words; the label sits on the arrow (`excalidraw-connect --label`).
 - Numbers follow the order events happen. Parallel/alternative branches of one step use sub-numbers: `(2.1) cdc`, `(2.2) push`. A fan-out of the same step may repeat its number (three `(4)` arrows leaving Spark in the example).
 - **Multiple user flows** (end user vs. developer, serving vs. training): give each flow its own arrow color and its **own numbering starting at 1** — e.g. end-user flow `(1)…(5)` in blue and developer flow `(1)…(6)` in green. Set the color via the arrow's `strokeColor` (its label inherits it automatically), and add a small legend (short colored arrow + flow name) in a corner.
 - Suggested flow colors: end user / serving `#1971c2` (blue), developer / training `#2f9e44` (green), data ingestion `#e8590c` (orange), ops `#9c36b5` (purple). Keep one flow per color across the whole diagram.
@@ -112,21 +115,36 @@ Apply these rules to every system / platform / pipeline / infrastructure diagram
 - Use `"strokeStyle": "dashed"` only for secondary/background flows not directly tied to a user: telemetry and log collection, alerting, async replication, periodic sync, backups. If more than ~20% of arrows are dashed, reconsider.
 - Dashed *zone borders* are fine; this rule is about arrows.
 
+### Rule 5: Icons everywhere, and big
+
+- **Always prefer an icon over a plain box.** Every deployable unit gets its product logo; every actor gets a person/device icon (`mdi:account`, `mdi:laptop-account`, `mdi:cellphone`); generic components get a generic icon (`mdi:server`, `mdi:database`, `mdi:api`, `mdi:web`, `mdi:cloud`, `mdi:file-document`, `mdi:bucket`). Search before giving up: `excalidraw-icon search <name>` checks svgl and all Iconify sets (`logos:`, `selfhst:`, `devicon:`, `simple-icons:`, `mdi:`).
+- A plain box is only acceptable for things inside a unit that no icon represents (DAG task steps, "train final model") — and even then, a small logo of the host tool next to the box helps (the example puts the Ray logo under "train final model").
+- **Size**: main components 96px (the `excalidraw-icon` default); the central/most important unit may be 120–140px; secondary items (storage buckets, sidecars, logos next to boxes) 48–64px. Never below 48px. Monochrome icons: pass `--color` matching their flow or zone.
+- Label every icon with its role (`--label "Online Store"`); the technology is conveyed by the logo.
+
+### Rule 6: Arrows are always orthogonal (elbow)
+
+- Every arrow is made of horizontal and vertical segments only — no diagonals, no curves. Draw them with `excalidraw-connect` (see **Arrows: Always Orthogonal**), which routes elbows, binds both ends, and adds the numbered label.
+- Don't use `startElementId`/`endElementId` in `add` for architecture diagrams: the server renders those as straight diagonals.
+- Prefer layouts where connected components share a row or column so arrows are straight lines; `excalidraw-connect` snaps to a straight segment whenever the two sides overlap.
+
 ### Layout & style (from the reference example)
 
 - **Zones by lifecycle stage**: group components into zones such as Data Pipeline, Serving Pipeline, Training Pipeline, Dev Env, Model Registry, Observability. Each zone: pastel fill, thin dashed border, title as a free-standing text at the top-left (fontSize 24–28). Fills used in the example: `#e7f5ff` blue, `#fff4e6` orange, `#ebfbee` green, `#fff9db` yellow, `#f1f3f5` gray.
-- **Components**: white rounded rectangles (`"roundness": {"type": 3}`) with the product logo inside or beside them (use `excalidraw-icon`); datastores as their logo (`logos:postgresql`, `logos:redis`, ...) with the role label underneath.
+- **Components are big icons first** (see Rule 5): each deployable unit is its logo, placed with `excalidraw-icon` at 96px (default) with its role label underneath — "Online Store" under `logos:redis`, "Offline Store" under `logos:postgresql`. Use a white rounded box only for things with no sensible icon (internal steps like "quality check").
 - **Replicas**: draw 2–3 copies with "..." between them (Producer 1, Producer 2, ..., Producer N).
 - **Actors**: an icon (e.g. `mdi:account`, `mdi:laptop-account`) where each user flow starts.
 - **Orchestrators** (Airflow, Argo Workflows): a dashed boundary around the tasks they run, orchestrator logo at the boundary's top-right; sub-steps can sit in their own tinted sub-zones.
 - **Clean technical look**: `"roughness": 0`, `"fontFamily": "cascadia"` (monospace) for all text, `"fillStyle": "solid"`, strokeWidth 1–2.
-- **Monospace labels need a post-sync patch**: `fontFamily` is only honored on free-standing text elements. Labels created via `"text"` on shapes/arrows render in the default handwritten font. After drawing (browser tab open, wait ~5s for auto-sync so bound labels exist as text elements with a `containerId`), switch them all in one patch:
-  ```bash
-  ids=$(curl -s "$EXPRESS_SERVER_URL/api/elements" | jq -c '[.elements[] | select(.type=="text" and .containerId != null and .fontFamily != 3) | {id, set: {fontFamily: "cascadia"}}]')
-  echo "{\"update\": $ids}" | npx -y mcp-excalidraw-server@2.0.0 apply -
+- **Labeled boxes (monospace)**: the `"text"` shorthand on shapes renders in the handwritten font regardless of `fontFamily`. Create the label as a bound text element instead — the shape lists it in `boundElements`, the text points back via `containerId`:
+  ```json
+  [
+    {"id": "qc", "type": "rectangle", "x": 700, "y": 620, "width": 200, "height": 70, "roughness": 0, "roundness": {"type": 3}, "backgroundColor": "#ffffff", "fillStyle": "solid", "boundElements": [{"id": "qc-text", "type": "text"}]},
+    {"id": "qc-text", "type": "text", "x": 710, "y": 643, "width": 180, "height": 24, "text": "quality check", "fontSize": 18, "fontFamily": "cascadia", "textAlign": "center", "verticalAlign": "middle", "containerId": "qc"}
+  ]
   ```
-  Repeat after adding more labeled shapes/arrows, and before `export`.
-- **Routing**: cross-zone arrows are expected here. Leave 60–100px gutters between zones and route arrows orthogonally (`"elbowed": true` or waypoints) through the gutters — never diagonally across another zone.
+  `excalidraw-icon` labels and `excalidraw-connect` arrow labels are already monospace.
+- **Routing**: all arrows orthogonal via `excalidraw-connect` (Rule 6). Cross-zone arrows are expected — leave 60–100px gutters between zones and pass `viaX`/`viaY` so the middle segment runs through a gutter, never across another zone.
 
 ### Planning an architecture diagram
 
@@ -135,7 +153,14 @@ Before writing any JSON, write down:
 2. Each user flow, its color, and its ordered steps as `(n) source → target: description` (Rules 2–3).
 3. Which arrows (if any) are secondary and dashed (Rule 4).
 
-Then lay out zones in reading order (left → right, top → bottom following flow `(1)`), place components with `excalidraw-icon`, and add arrows flow by flow.
+4. The icon ref for every component (`excalidraw-icon search`) — aim for an icon on every deployable unit and actor (Rule 5).
+
+Then:
+1. Draw zones (rectangles + free-standing titles) in reading order (left → right, top → bottom following flow `(1)`), sized for 96px icons with ~180px spacing.
+2. Place all components with one `excalidraw-icon add -` batch, giving each a stable `id`.
+3. Draw each flow's arrows with one `excalidraw-connect -` batch per flow (or all at once), in step order.
+4. Add a legend (one short `excalidraw-connect` sample per flow, or colored text) if there are multiple flows.
+5. `screenshot` and run the Quality Checklist; fix crossings with `fromSide`/`toSide`/`viaX`/`viaY` by deleting and re-connecting the arrow.
 
 ---
 
@@ -192,7 +217,7 @@ After each `add` / `apply` / `batch_create_elements`, take a screenshot and chec
 
 1. **Text truncation** — Is all label text fully visible? Truncated text means the shape is too small. Increase `width` and/or `height`.
 2. **Overlap** — Do any shapes share the same space? Background zones must fully contain children with padding.
-3. **Arrow crossing** — Do arrows cut through unrelated elements? If yes, route them around using curved or elbowed arrows (see Arrow Routing below).
+3. **Arrow crossing** — Do arrows cut through unrelated elements? If yes, re-connect them with different sides or `viaX`/`viaY` (see Arrow Routing below).
 4. **Arrow-label overlap** — Arrow labels sit at the midpoint. If they overlap a shape, shorten the label or adjust the arrow path.
 5. **Spacing** — At least 40px gap between elements. Cramped layouts are hard to read.
 6. **Readability** — Font size ≥ 16 for body text, ≥ 20 for titles.
@@ -204,6 +229,8 @@ For architecture diagrams, also check the conventions:
 9. **Arrow direction** — every arrow points the way data moves, or caller → callee if no data moves (Rule 2).
 10. **Numbering** — every arrow has `(n) description`; each flow has its own color and numbering from 1, with a legend if there's more than one flow (Rule 3).
 11. **Dashed arrows** — only on secondary, non-user flows (Rule 4).
+12. **Icons** — every component and actor that can have an icon has one, at 96px (48–64px for secondary items) (Rule 5).
+13. **Orthogonal arrows** — no diagonal or curved arrows; nothing crosses an icon, label, or unrelated zone (Rule 6).
 
 If you find any issue: **stop, fix it, re-screenshot, then continue.** Say "I see [issue], fixing it" rather than glossing over problems. Only proceed once all checks pass.
 
@@ -221,62 +248,86 @@ If you find any issue: **stop, fix it, re-screenshot, then continue.** Say "I se
 
 1. Plan your coordinate grid — map out tiers and x-positions before writing JSON. (MCP mode: call `read_diagram_guide` for colors/sizing; the same guidance lives in `references/cheatsheet.md`.)
 2. `describe` to see what's already on the shared canvas. If it holds unrelated work, `snapshot save <name>` and ask before `clear --yes`, or draw in empty space away from it.
-3. Create shapes and arrows in one call. Custom `id` fields (e.g. `"id": "auth-svc"`) make later updates easy:
+3. Place components as icons in one call, with custom `id`s for connecting and later updates:
    ```bash
-   npx -y mcp-excalidraw-server@2.0.0 add - <<'EOF'
+   excalidraw-icon add - <<'EOF'
    [
-     {"id": "lb", "type": "rectangle", "x": 300, "y": 50, "width": 180, "height": 60, "text": "Load Balancer"},
-     {"id": "svc-a", "type": "rectangle", "x": 100, "y": 200, "width": 160, "height": 60, "text": "Web Server 1"},
-     {"id": "svc-b", "type": "rectangle", "x": 450, "y": 200, "width": 160, "height": 60, "text": "Web Server 2"},
-     {"id": "db", "type": "rectangle", "x": 275, "y": 350, "width": 210, "height": 60, "text": "PostgreSQL"},
-     {"type": "arrow", "x": 0, "y": 0, "startElementId": "lb", "endElementId": "svc-a"},
-     {"type": "arrow", "x": 0, "y": 0, "startElementId": "lb", "endElementId": "svc-b"},
-     {"type": "arrow", "x": 0, "y": 0, "startElementId": "svc-a", "endElementId": "db"},
-     {"type": "arrow", "x": 0, "y": 0, "startElementId": "svc-b", "endElementId": "db"}
+     {"ref": "logos:nginx",      "x": 300, "y": 40,  "label": "Load Balancer", "id": "lb"},
+     {"ref": "mdi:server",       "x": 100, "y": 240, "label": "Web Server 1",  "id": "svc-a", "color": "#1971c2"},
+     {"ref": "mdi:server",       "x": 500, "y": 240, "label": "Web Server 2",  "id": "svc-b", "color": "#1971c2"},
+     {"ref": "logos:postgresql", "x": 300, "y": 440, "label": "Database",      "id": "db"}
    ]
    EOF
    ```
-   (The `-` positional is optional — with no file argument, `add` reads stdin.)
-4. Set shape widths using `max(160, labelLength * 12)`.
-5. `screenshot` → view the file → run the Quality Checklist → fix issues before the next batch.
+4. Connect them with orthogonal arrows in one call:
+   ```bash
+   excalidraw-connect - <<'EOF'
+   [
+     {"from": "lb",    "to": "svc-a", "label": "(1) route", "fromSide": "bottom", "toSide": "top"},
+     {"from": "lb",    "to": "svc-b", "label": "(1) route", "fromSide": "bottom", "toSide": "top"},
+     {"from": "svc-a", "to": "db",    "label": "(2) query", "fromSide": "bottom", "toSide": "top"},
+     {"from": "svc-b", "to": "db",    "label": "(2) query", "fromSide": "bottom", "toSide": "top"}
+   ]
+   EOF
+   ```
+5. Only use plain shapes (via `add`) for things no icon represents; size them `max(160, labelLength * 12)` wide.
+6. `screenshot` → view the file → run the Quality Checklist → fix issues before the next batch.
 
 ---
 
 ## Arrow Routing — Avoid Overlaps
 
-Straight arrows can cross through elements in complex diagrams. Use curved or elbowed arrows when needed:
+All arrows are orthogonal (elbow) — no curves, no diagonals. Use `excalidraw-connect` (see **Arrows: Always Orthogonal**); it handles fan-out by spreading arrows along a side and snaps to straight segments when sides line up.
 
-**Curved arrows** (smooth arc over obstacles):
-```json
-{
-  "type": "arrow", "x": 100, "y": 100,
-  "points": [[0, 0], [50, -40], [200, 0]],
-  "roundness": {"type": 2}
-}
-```
-The intermediate waypoint `[50, -40]` lifts the arrow upward. `roundness: {type: 2}` makes it smooth.
+- **Fan-out** (one source → many targets): connect them in one batch so exit points are spread; arrange targets in a column (source `right` → targets `left`).
+- **Cross-lane / cross-zone**: set `viaX` / `viaY` to a gutter coordinate so the middle segment runs between zones.
+- **Obstacle in the way**: change `fromSide`/`toSide` (e.g. exit `bottom`, enter `left`) or move the middle segment with `viaX`/`viaY`.
 
-**Elbowed arrows** (right-angle / L-shaped routing):
+If you must hand-write an arrow (no endpoints to bind to), use `"elbowed": true` with explicit points where every segment is horizontal or vertical — and no `startElementId`/`endElementId` (those force a straight diagonal):
 ```json
-{
-  "type": "arrow", "x": 100, "y": 100,
-  "points": [[0, 0], [0, -50], [200, -50], [200, 0]],
-  "elbowed": true
-}
+{"type": "arrow", "x": 100, "y": 100, "points": [[0, 0], [120, 0], [120, 80], [240, 80]], "elbowed": true, "roughness": 0}
 ```
 
-**When to use which:**
-- Fan-out (one source → many targets): curved arrows with waypoints spread to avoid overlapping
-- Cross-lane (connecting to side panels): elbowed arrows that go up, then across, then down
-- Long horizontal connections: curved arrows with a slight vertical offset
+**Rule:** If an arrow would pass through an unrelated shape, re-route it — never leave a crossing.
 
-**Rule:** If an arrow would pass through an unrelated shape, add a waypoint to route around it.
+---
+
+## Arrows: Always Orthogonal (`excalidraw-connect`)
+
+`excalidraw-connect` draws elbow arrows between existing elements (by id): horizontal/vertical segments only, bound to both ends (they follow shapes dragged in the browser), with a monospace label colored like the arrow.
+
+```bash
+# one arrow
+excalidraw-connect user nginx --label "(1) send id" --color "#1971c2"
+
+# a whole flow in one call (preferred — arrows sharing a side get spread out)
+excalidraw-connect - <<'EOF'
+[
+  {"from": "user",  "to": "nginx", "label": "(1) send id",  "color": "#1971c2"},
+  {"from": "nginx", "to": "serve", "label": "(2) predict",  "color": "#1971c2"},
+  {"from": "redis", "to": "serve", "label": "(3) features", "color": "#1971c2", "toSide": "top"},
+  {"from": "serve", "to": "otel",  "label": "traces",       "color": "#868e96", "dashed": true, "viaY": 620}
+]
+EOF
+```
+
+Spec fields / flags:
+- `from`, `to` — element ids (icons: the icon id, not the `-label`). Direction = data flow (Rule 2).
+- `label` — `(n) description` (Rule 3). `color` — flow color. `dashed` — secondary flows only (Rule 4).
+- `fromSide` / `toSide` (`--from-side` / `--to-side`) — `right|left|top|bottom`. Auto: horizontal gap → right/left, otherwise bottom/top. Icon labels are accounted for, so `bottom` exits below the label.
+- `viaX` / `viaY` (`--via-x` / `--via-y`) — coordinate of the middle segment; use it to route through the gutter between zones or around an obstacle.
+- `id` — arrow id (default `arrow-<from>-<to>-<rand>`); its label is `<id>-label`.
+
+Behavior and gotchas:
+- The router does not avoid obstacles. After drawing, `screenshot`; if an arrow crosses an element or label, delete it (and its `-label`) and re-connect with `fromSide`/`toSide`/`viaX`/`viaY`.
+- Draw arrows that share an element side in the **same call** so they're spread along that side. The output includes `warnings` when a side already has arrows from an earlier call — then pick a free side.
+- Moving elements via `update`/`arrange` does not re-route these arrows; delete and re-connect them. (Dragging in the browser does re-route.)
 
 ---
 
 ## Icons & Logos (`excalidraw-icon`)
 
-Use real logos/icons for services, tools, and infrastructure instead of plain labeled boxes when it helps recognition (architecture, homelab, deployment diagrams). The `excalidraw-icon` command fetches SVGs and places them on the canvas as image elements — the SVG never passes through your context, so don't try to embed SVGs via MCP `import_scene` yourself.
+Use real logos/icons for every component you can (Rule 5) — services, tools, infrastructure, actors, generic resources. The `excalidraw-icon` command fetches SVGs and places them on the canvas as image elements — the SVG never passes through your context, so don't try to embed SVGs via MCP `import_scene` yourself.
 
 **Sources / refs:**
 - **svgl** (`svgl:<slug>`) — ~670 colorful brand logos. Many have `light`/`dark` variants; the canvas is light-themed by default, so use the `light` ref. Wordmarks (logo + name) are listed separately.
@@ -284,21 +335,22 @@ Use real logos/icons for services, tools, and infrastructure instead of plain la
 
 **Workflow:**
 1. Find refs (JSON out): `excalidraw-icon search docker` — searches svgl + Iconify; narrow with `--source svgl|iconify` or `--prefix selfhst,logos`. Iconify search is keyword-based ("database", not "place to store data").
-2. Place one: `excalidraw-icon add svgl:docker --x 100 --y 100 --size 64 --label Docker [--id docker]`
+2. Place one: `excalidraw-icon add svgl:docker --x 100 --y 100 --label Docker [--size 96] [--id docker]`
 3. Place many in one call (preferred):
    ```bash
    excalidraw-icon add - <<'EOF'
    [
      {"ref": "selfhst:proxmox", "x": 100, "y": 100, "label": "Proxmox", "id": "pve"},
      {"ref": "logos:kubernetes", "x": 260, "y": 100, "label": "Talos k8s", "id": "k8s"},
-     {"ref": "mdi:database", "x": 420, "y": 100, "size": 56, "color": "#2f9e44", "label": "Postgres"}
+     {"ref": "mdi:database", "x": 420, "y": 100, "color": "#2f9e44", "label": "Postgres"},
+     {"ref": "selfhst:minio", "x": 580, "y": 120, "size": 56, "label": "Model Storage"}
    ]
    EOF
    ```
-4. Output lists each `id`, `labelId`, and the final `width`/`height` (aspect ratio preserved, longest side = `size`, default 64). The label is a separate text element centered 8px below the icon — budget ~30px of vertical space for it.
-5. Connect with arrows using the returned ids (`startElementId` / `endElementId`), then `screenshot` to verify as usual. Icons are regular elements: move/resize with `update`, remove with `delete` (delete the `-label` element too).
+4. Output lists each `id`, `labelId`, and the final `width`/`height` (aspect ratio preserved, longest side = `size`, default 96). The label is a separate monospace text element (18px) centered 8px below the icon — budget ~35px of vertical space for it.
+5. Connect with `excalidraw-connect` using the returned ids, then `screenshot` to verify as usual. Icons are regular elements: move/resize with `update`, remove with `delete` (delete the `-label` element too).
 
-**Layout tips:** 64px icons with 150px horizontal spacing leave room for labels; for icons inside a zone or a node box, place the icon at the top-left of the box and put text beside it rather than stacking labels on top. `excalidraw-icon svg <ref> --out file.svg` saves the normalized SVG for use outside the canvas (docs, READMEs).
+**Layout tips:** 96px icons need ~180px horizontal spacing (label width + a labeled arrow between them) and ~170px vertical spacing; for icons inside a zone or a node box, place the icon at the top-left of the box and put text beside it rather than stacking labels on top. `excalidraw-icon svg <ref> --out file.svg` saves the normalized SVG for use outside the canvas (docs, READMEs).
 
 ---
 
@@ -370,7 +422,7 @@ Round-trips are safe: text-element block references follow the plugin's own id r
 - **Exit code 3 (canvas unreachable)?** Check `echo $EXPRESS_SERVER_URL` and `curl -s $EXPRESS_SERVER_URL/health`. The shared server requires LAN/VPN access; if it's down, tell the user (`sudo systemctl status docker-excalidraw` on the server) — do not `start` a local canvas.
 - **Exit code 4 (browser required)?** Ask the user to open `$EXPRESS_SERVER_URL` in a browser, then retry — screenshots, image export, viewport, and mermaid conversion render in the frontend.
 - **Elements not appearing?** Check `describe` — they may be off-screen. In MCP mode, use `set_viewport` with `scrollToContent: true`, or `scrollToElementIds` plus optional `viewportZoomFactor` to focus on a specific subgraph; in a browser, press the zoom-to-fit button.
-- **Arrow not connecting?** Verify element IDs with `get <id>`. Make sure `startElementId`/`endElementId` match existing element IDs.
+- **Arrow not connecting?** Verify element IDs with `get <id>` (for icons, connect the icon id, not its `-label`). `excalidraw-connect` exits 2 with "element not found" for bad ids.
 - **Canvas in a bad state?** `snapshot save` first, then `clear --yes` and rebuild. Or `snapshot restore` to go back.
 - **Element won't update?** It may be locked — `arrange unlock --ids <id>` first.
 - **Duplicate text elements / element count doubling?** The frontend auto-sync timer periodically writes the full Excalidraw scene back to the server. Excalidraw internally generates a bound text element for every shape with a label; clearing and re-sending elements can re-inject cached bound texts. Clean up: `query --type text` to find elements with a `containerId`, `delete` the unwanted ones, wait a few seconds for auto-sync to settle. The safest prevention: **never put labels on background zone rectangles** — use free-standing text elements.
