@@ -5,6 +5,7 @@
     ./karakeep.nix
     ./n8n.nix
     ./n8n-sandbox.nix
+    ./searxng.nix
     ./newt.nix
     ./socat.nix
     ./cliproxyapi.nix
