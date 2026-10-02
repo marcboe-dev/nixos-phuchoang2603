@@ -33,5 +33,10 @@ in
 
   # Shared Context
   programs.codex.context = sharedContext;
-  programs.cursor-agent.rules.global-context = sharedContext;
+  programs.cursor-agent.rules.global-context = ''
+    ---
+    alwaysApply: true
+    ---
+    ${builtins.readFile sharedContext}
+  '';
 }

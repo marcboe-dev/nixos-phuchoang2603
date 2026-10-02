@@ -99,9 +99,10 @@ in
       default = { };
       description = ''
         Rule files for Cursor Agent.
-        The attribute name becomes the rule filename, and the value is either:
-        - Inline content as a string (with optional MDC frontmatter)
-        - A path to a file containing the rule content
+        The attribute name becomes the rule filename (`<name>.mdc`), and the value is either:
+        - Inline content as a string with MDC frontmatter
+        - A path to a file containing the rule content with MDC frontmatter
+        Rules without frontmatter are ignored by Cursor.
         Rules are stored in {file}`~/.cursor/rules/` directory.
       '';
     };
@@ -236,7 +237,7 @@ in
         }
         // lib.mapAttrs' (
           name: content:
-          lib.nameValuePair ".cursor/rules/${name}.md" (
+          lib.nameValuePair ".cursor/rules/${name}.mdc" (
             if lib.isPath content then { source = content; } else { text = content; }
           )
         ) cfg.rules
