@@ -9,7 +9,7 @@
     ./newt.nix
     ./socat.nix
     ./cliproxyapi.nix
-    ./mcpjungle.nix
+    ./executor.nix
     ./obscura.nix
     ./excalidraw.nix
   ];

@@ -21,8 +21,8 @@ in
   programs.mcp = {
     enable = true;
     servers = {
-      mcpjungle = {
-        url = "https://mcp.${gatewayDomain}/mcp";
+      executor = {
+        url = "https://mcp.${gatewayDomain}/mcp?mode=passthrough";
       };
     };
   };

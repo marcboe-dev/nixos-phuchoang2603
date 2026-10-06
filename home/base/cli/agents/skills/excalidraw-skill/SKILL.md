@@ -1,6 +1,6 @@
 ---
 name: excalidraw-skill
-description: Excalidraw canvas toolkit for creating, editing, and refining diagrams on a live canvas, including brand logos and icons from svgl/Iconify. Use when an agent needs to (1) draw or lay out diagrams, (2) iteratively refine them by describing the scene and screenshotting its own work, (3) export/import .excalidraw files or PNG/SVG images, (4) save/restore canvas snapshots, (5) convert Mermaid to Excalidraw, or (6) perform element-level CRUD, alignment, distribution, grouping, duplication, and locking. Drives the shared canvas at $EXPRESS_SERVER_URL via MCPJungle `excalidraw__*` MCP tools or the CLI (npx -y mcp-excalidraw-server@2.0.0 <command>); the REST API is an equivalent fallback.
+description: Excalidraw canvas toolkit for creating, editing, and refining diagrams on a live canvas, including brand logos and icons from svgl/Iconify. Use when an agent needs to (1) draw or lay out diagrams, (2) iteratively refine them by describing the scene and screenshotting its own work, (3) export/import .excalidraw files or PNG/SVG images, (4) save/restore canvas snapshots, (5) convert Mermaid to Excalidraw, or (6) perform element-level CRUD, alignment, distribution, grouping, duplication, and locking. Drives the shared canvas at $EXPRESS_SERVER_URL via the Executor MCP server's excalidraw tools or the CLI (npx -y mcp-excalidraw-server@2.0.0 <command>); the REST API is an equivalent fallback.
 ---
 
 # Excalidraw Skill
@@ -11,7 +11,7 @@ All interfaces drive one shared canvas server running in Docker on the home serv
 
 Pick the first interface that applies:
 
-1. **MCP tools via MCPJungle** — if `excalidraw__*` tools (e.g. `excalidraw__batch_create_elements`, possibly exposed under the `mcpjungle` server) are in your tool list, prefer them for drawing, inspecting, and screenshots: results land directly in your context and screenshots come back as images. Tool names in this skill and the cheatsheet omit the `excalidraw__` prefix. **Do not use MCP file I/O tools (`export_scene`, `import_scene`, `export_to_image`) to write or read files** — they run inside the MCPJungle container, not on this machine. Use the CLI for anything touching local files.
+1. **MCP tools via Executor** — if the `executor` MCP server is in your tool list, find the excalidraw tools with its `search` tool (e.g. "excalidraw describe scene") and call them with `invoke`, or batch several calls in one `execute` script. Prefer them for drawing, inspecting, and screenshots: results land directly in your context. Tool names in this skill and the cheatsheet are the bare excalidraw tool names (e.g. `batch_create_elements`); use the exact IDs `search` returns. **Do not use MCP file I/O tools (`export_scene`, `import_scene`, `export_to_image`) to write or read files** — they run inside the Executor container, not on this machine. Use the CLI for anything touching local files.
 2. **CLI** — for file I/O (export/import into the repo, PNG/SVG to disk), or when no MCP tools are present:
    ```bash
    npx -y mcp-excalidraw-server@2.0.0 <command>

@@ -1,0 +1,6 @@
+http:
+  middlewares:
+    executor-api-key:
+      headers:
+        customRequestHeaders:
+          x-api-key: '{{ env "EXECUTOR_API_KEY" }}'

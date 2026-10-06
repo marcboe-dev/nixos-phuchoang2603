@@ -5,7 +5,7 @@
 - Canvas base URL: `EXPRESS_SERVER_URL` (set to the shared `https://excalidraw.home.phuchoang.sbs`); CLI also accepts `--url <canvasUrl>`
 - Canvas health: `GET /health` or `npx -y mcp-excalidraw-server@2.0.0 status`
 - Auto-start: never happens for the shared (non-loopback) URL; don't `start`/`stop` it
-- MCP tools come through MCPJungle prefixed `excalidraw__` (e.g. `excalidraw__describe_scene`); MCP file I/O paths resolve inside the MCPJungle container, so use the CLI for local files
+- MCP tools come through Executor: find them with `search` and call them with `invoke` (or `execute`); MCP file I/O paths resolve inside the Executor container, so use the CLI for local files
 
 ## CLI Reference
 
